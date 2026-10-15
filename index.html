@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SMB3 Co-Op Fireball Triage</title>
+  <!-- PeerJS for WebRTC P2P Room Synchronization -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
     body {
-      background: #111;
+      background: #0d0d0d;
       color: #fff;
       font-family: 'Courier New', Courier, monospace;
       display: flex;
@@ -15,530 +18,107 @@
       justify-content: center;
       min-height: 100vh;
       overflow: hidden;
+      touch-action: none;
     }
-    #game-container {
+    #game-wrapper {
       position: relative;
-      width: 640px;
-      height: 480px;
-      border: 4px solid #444;
+      width: 100vw;
+      max-width: 640px;
+      height: 75vh;
+      max-height: 480px;
+      border: 3px solid #333;
       background: #000;
       image-rendering: pixelated;
     }
     canvas { display: block; width: 100%; height: 100%; }
-    .overlay {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-    }
     .hud {
       position: absolute;
-      top: 8px; left: 12px; right: 12px;
+      top: 6px; left: 8px; right: 8px;
       display: flex;
       justify-content: space-between;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       pointer-events: none;
       text-shadow: 2px 2px #000;
       z-index: 10;
     }
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 16px;
+      text-align: center;
+      z-index: 20;
+    }
     input, button {
-      background: #222;
+      background: #1c1c1c;
       border: 2px solid #fff;
       color: #fff;
-      padding: 8px 16px;
+      padding: 10px 16px;
       font-family: inherit;
-      font-size: 16px;
+      font-size: 15px;
+      font-weight: bold;
       cursor: pointer;
     }
-    button:hover { background: #fff; color: #000; }
-    input { width: 140px; text-transform: uppercase; text-align: center; }
-    .leaderboard-table {
-      width: 80%;
-      border-collapse: collapse;
-      font-size: 12px;
-      margin-top: 8px;
-    }
-    .leaderboard-table th, .leaderboard-table td {
-      border: 1px solid #444;
-      padding: 4px 8px;
-      text-align: center;
-    }
-    .leaderboard-table th { background: #222; }
+    button:active { background: #fff; color: #000; }
+    input { width: 120px; text-transform: uppercase; text-align: center; }
     .hidden { display: none !important; }
+
+    /* Touch Controls (Mobile Viewport) */
+    #touch-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100vw;
+      max-width: 640px;
+      height: 25vh;
+      max-height: 140px;
+      padding: 10px 24px;
+      background: #111;
+      border-top: 2px solid #222;
+    }
+    .touch-btn-group { display: flex; gap: 14px; }
+    .t-btn {
+      width: 68px;
+      height: 68px;
+      background: #2a2a2a;
+      border: 2px solid #666;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: #fff;
+      touch-action: none;
+    }
+    .t-btn:active, .t-btn.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+    .t-btn-jump {
+      width: 80px;
+      height: 80px;
+      background: #900;
+      border-color: #f33;
+      font-size: 16px;
+    }
+    .t-btn-jump:active, .t-btn-jump.active {
+      background: #f33;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
 
-<div id="game-container">
+<div id="game-wrapper">
   <div class="hud">
-    <div>SURVIVAL TIME: <span id="hud-time" style="color: #4af;">00:00.00</span></div>
-    <div>CLOCK RATE: <span id="hud-rate" style="color: #ff4;">100%</span></div>
-    <div>SCORE: <span id="hud-score" style="color: #fa0;">0</span></div>
-  </div>
-
-  <canvas id="stage" width="640" height="480"></canvas>
-
-  <!-- LOBBY OVERLAY -->
-  <div id="lobby-menu" class="overlay">
-    <h2 style="color: #f55; text-align: center;">SMB3 VS: FIREBALL TRIAGE</h2>
-    <p style="font-size: 12px; max-width: 480px; text-align: center; line-height: 1.4;">
-      CO-OP 1-LIFE RULES: Bump platforms from below to extinguish fireballs and stun enemies.
-      Kicking a stunned enemy turns it into a lethal Hazard Coin. Bump a Hazard Coin to bank it,
-      earn points, and slow down the survival clock!
-    </p>
-    <div style="display: flex; gap: 12px;">
-      <button id="btn-create">CREATE GAME</button>
-      <div style="display: flex; gap: 4px;">
-        <input type="text" id="join-code" placeholder="ROOM" maxlength="6">
-        <button id="btn-join">JOIN</button>
-      </div>
-    </div>
-    <div id="lobby-status" style="font-size: 14px; color: #aaa;">P1: [W,A,D] | P2: [Arrows]</div>
-  </div>
-
-  <!-- GAME OVER / SCOREBOARD OVERLAY -->
-  <div id="game-over-menu" class="overlay hidden">
-    <h2 style="color: #f00;">TEAM WIPED</h2>
-    <div style="text-align: center; font-size: 14px;">
-      <div>SURVIVAL TIME: <span id="final-time" style="color: #4af; font-weight: bold;">00:00.00</span></div>
-      <div>FINAL SCORE: <span id="final-score" style="color: #fa0; font-weight: bold;">0</span></div>
-    </div>
-    <table class="leaderboard-table">
-      <thead>
-        <tr>
-          <th>RANK</th>
-          <th>TEAM</th>
-          <th>SURVIVAL TIME</th>
-          <th>SCORE</th>
-        </tr>
-      </thead>
-      <tbody id="leaderboard-body">
-        <!-- Injected via JS -->
-      </tbody>
-    </table>
-    <button id="btn-retry">PLAY AGAIN</button>
-  </div>
-</div>
-
-<script>
-(() => {
-  const canvas = document.getElementById('stage');
-  const ctx = canvas.getContext('2d');
-
-  // UI References
-  const lobbyMenu = document.getElementById('lobby-menu');
-  const gameOverMenu = document.getElementById('game-over-menu');
-  const lobbyStatus = document.getElementById('lobby-status');
-  const hudTime = document.getElementById('hud-time');
-  const hudRate = document.getElementById('hud-rate');
-  const hudScore = document.getElementById('hud-score');
-  const finalTime = document.getElementById('final-time');
-  const finalScore = document.getElementById('final-score');
-  const leaderboardBody = document.getElementById('leaderboard-body');
-
-  // Input Tracking
-  const keys = {};
-  window.addEventListener('keydown', e => { keys[e.code] = true; });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
-
-  // Arena Geometry: Platforms [x, y, width, height]
-  const platforms = [
-    { x: 0, y: 440, w: 640, h: 40 },   // Ground floor
-    { x: 60, y: 340, w: 220, h: 16 },  // Lower Left
-    { x: 360, y: 340, w: 220, h: 16 }, // Lower Right
-    { x: 160, y: 240, w: 320, h: 16 }, // Center Mid
-    { x: 60, y: 140, w: 220, h: 16 },  // Upper Left
-    { x: 360, y: 140, w: 220, h: 16 }  // Upper Right
-  ];
-
-  // Game Engine State
-  let running = false;
-  let survivalTimeMs = 0;
-  let score = 0;
-  let clockRate = 1.0;
-  let bankedCoins = 0;
-  let players = [];
-  let enemies = [];
-  let fireballs = [];
-  let shockwaves = [];
-  let fireballSpawnCounter = 0;
-
-  // Local Leaderboard Mock
-  let highScores = [
-    { team: "Mario & Luigi", time: 92450, score: 38400 },
-    { team: "Toad & Peach", time: 64120, score: 21200 },
-    { team: "Wario & Waluigi", time: 41800, score: 14900 }
-  ];
-
-  function formatTime(ms) {
-    const totalSecs = Math.floor(ms / 1000);
-    const m = Math.floor(totalSecs / 60).toString().padStart(2, '0');
-    const s = (totalSecs % 60).toString().padStart(2, '0');
-    const cs = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
-    return `${m}:${s}.${cs}`;
-  }
-
-  function initGame() {
-    running = true;
-    survivalTimeMs = 0;
-    score = 0;
-    clockRate = 1.0;
-    bankedCoins = 0;
-    shockwaves = [];
-    fireballSpawnCounter = 0;
-
-    players = [
-      { id: 1, x: 200, y: 400, vx: 0, vy: 0, w: 18, h: 26, color: '#f33', grounded: false },
-      { id: 2, x: 420, y: 400, vx: 0, vy: 0, w: 18, h: 26, color: '#3c3', grounded: false }
-    ];
-
-    enemies = [
-      { id: 1, type: 'SPINY', x: 80, y: 120, vx: 1.2, vy: 0, w: 16, h: 16, state: 'WALK', stunTimer: 0 },
-      { id: 2, type: 'BUZZY', x: 540, y: 120, vx: -1.8, vy: 0, w: 16, h: 16, state: 'WALK', stunTimer: 0 },
-      { id: 3, type: 'FLY', x: 320, y: 220, vx: 1.0, vy: 0, w: 16, h: 16, state: 'WALK', stunTimer: 0, hopTimer: 0 }
-    ];
-
-    fireballs = [
-      { x: 320, y: 60, vx: 2.2, vy: 1.5, r: 8, waveOffset: 0 }
-    ];
-
-    lobbyMenu.classList.add('hidden');
-    gameOverMenu.classList.add('hidden');
-  }
-
-  function triggerGameOver() {
-    running = false;
-    finalTime.textContent = formatTime(survivalTimeMs);
-    finalScore.textContent = Math.floor(score).toLocaleString();
-
-    highScores.push({ team: "Current Run", time: Math.floor(survivalTimeMs), score: Math.floor(score) });
-    highScores.sort((a, b) => b.time - a.time);
-
-    leaderboardBody.innerHTML = highScores.slice(0, 5).map((entry, idx) => `
-      <tr style="${entry.team === 'Current Run' ? 'color: #ff4; font-weight: bold;' : ''}">
-        <td>#${idx + 1}</td>
-        <td>${entry.team}</td>
-        <td>${formatTime(entry.time)}</td>
-        <td>${entry.score.toLocaleString()}</td>
-      </tr>
-    `).join('');
-
-    gameOverMenu.classList.remove('hidden');
-  }
-
-  // Head-Bump Activation
-  function registerHeadBump(x, y, w) {
-    shockwaves.push({ x: x + w / 2, y: y, life: 12 });
-
-    // 1. Extinguish Fireballs
-    fireballs = fireballs.filter(fb => {
-      const hit = Math.abs(fb.x - (x + w / 2)) < 24 && Math.abs(fb.y - y) < 20;
-      if (hit) {
-        score += 2500 * (enemies.filter(e => e.state === 'WALK').length + 1);
-      }
-      return !hit;
-    });
-
-    // 2. Stun Enemies or Collect Hazard Coins
-    enemies.forEach(en => {
-      if (Math.abs(en.x - (x + w / 2)) < 20 && Math.abs((en.y + en.h) - y) < 18) {
-        if (en.state === 'COIN_MODE') {
-          // Greed Cash-Out
-          en.state = 'DEAD';
-          bankedCoins++;
-          clockRate = Math.max(0.40, clockRate * 0.85);
-          score += 10000 * bankedCoins * (fireballs.length + 1);
-        } else if (en.state === 'WALK') {
-          // Stun
-          en.state = 'STUNNED';
-          en.stunTimer = 360; // 6 seconds at 60Hz
-          en.vx = 0;
-        } else if (en.state === 'STUNNED') {
-          // Early Wakeup
-          en.state = 'WALK';
-          en.vx = (Math.random() > 0.5 ? 1 : -1) * (en.type === 'BUZZY' ? 1.8 : 1.2);
-        }
-      }
-    });
-
-    // Remove permanently collected enemies
-    enemies = enemies.filter(en => en.state !== 'DEAD');
-
-    // Hard Loss Condition: All enemies lost
-    if (enemies.length === 0) {
-      triggerGameOver();
-    }
-  }
-
-  // Main Loop
-  function tick(dt) {
-    if (!running) return;
-
-    // Survival Clock Dilation: Clock ticks slower as coins are banked
-    survivalTimeMs += dt * clockRate;
-    score += (dt / 1000) * 100 * (enemies.filter(e => e.state === 'WALK').length ** 2);
-
-    // Update HUD
-    hudTime.textContent = formatTime(survivalTimeMs);
-    hudRate.textContent = `${Math.floor(clockRate * 100)}%`;
-    hudScore.textContent = Math.floor(score).toLocaleString();
-
-    // Spawn Escalation (Physical speed stays at 100%)
-    fireballSpawnCounter++;
-    if (fireballSpawnCounter > 420 && fireballs.length < 5) {
-      fireballSpawnCounter = 0;
-      fireballs.push({
-        x: Math.random() > 0.5 ? 20 : 620,
-        y: 40,
-        vx: (Math.random() > 0.5 ? 1 : -1) * 2.2,
-        vy: 1.2,
-        r: 8,
-        waveOffset: Math.random() * Math.PI
-      });
-    }
-
-    // Update Players
-    players.forEach((p, idx) => {
-      const leftKey = idx === 0 ? keys['KeyA'] : keys['ArrowLeft'];
-      const rightKey = idx === 0 ? keys['KeyD'] : keys['ArrowRight'];
-      const jumpKey = idx === 0 ? keys['KeyW'] : keys['ArrowUp'];
-
-      if (leftKey) p.vx = -3.2;
-      else if (rightKey) p.vx = 3.2;
-      else p.vx *= 0.8;
-
-      p.vy += 0.45; // Gravity
-      p.x += p.vx;
-      p.y += p.vy;
-
-      // Screen wraparound
-      if (p.x < -p.w) p.x = 640;
-      if (p.x > 640) p.x = -p.w;
-
-      // Platform Collisions
-      p.grounded = false;
-      platforms.forEach(plat => {
-        // Feet collision
-        if (p.x + p.w > plat.x && p.x < plat.x + plat.w &&
-            p.y + p.h >= plat.y && p.y + p.h <= plat.y + 12 && p.vy >= 0) {
-          p.y = plat.y - p.h;
-          p.vy = 0;
-          p.grounded = true;
-        }
-        // Head Bump Collision
-        if (p.x + p.w > plat.x && p.x < plat.x + plat.w &&
-            p.y <= plat.y + plat.h && p.y >= plat.y + plat.h - 8 && p.vy < 0) {
-          p.y = plat.y + plat.h;
-          p.vy = 1;
-          registerHeadBump(p.x, plat.y, p.w);
-        }
-      });
-
-      if (jumpKey && p.grounded) {
-        p.vy = -9.2;
-        p.grounded = false;
-      }
-    });
-
-    // Update Enemies
-    enemies.forEach(en => {
-      if (en.state === 'WALK' || en.state === 'COIN_MODE') {
-        en.vy += 0.4;
-        if (en.type === 'FLY' && en.state === 'WALK') {
-          en.hopTimer = (en.hopTimer || 0) + 1;
-          if (en.hopTimer % 90 === 0) en.vy = -6.5;
-        }
-
-        en.x += en.vx;
-        en.y += en.vy;
-
-        // Screen wrap
-        if (en.x < -en.w) en.x = 640;
-        if (en.x > 640) en.x = -en.w;
-
-        // Platform collision
-        platforms.forEach(plat => {
-          if (en.x + en.w > plat.x && en.x < plat.x + plat.w &&
-              en.y + en.h >= plat.y && en.y + en.h <= plat.y + 10 && en.vy >= 0) {
-            en.y = plat.y - en.h;
-            en.vy = 0;
-          }
-        });
-      } else if (en.state === 'STUNNED') {
-        en.stunTimer--;
-        if (en.stunTimer <= 0) {
-          en.state = 'WALK';
-          en.vx = 1.2;
-        }
-      }
-    });
-
-    // Update Fireballs (Bouncing off walls and floor boundaries)
-    fireballs.forEach(fb => {
-      fb.x += fb.vx;
-      fb.y += fb.vy + Math.sin(survivalTimeMs * 0.005 + fb.waveOffset) * 0.8;
-
-      // Arena boundary bounces
-      if (fb.x - fb.r <= 0 || fb.x + fb.r >= 640) fb.vx *= -1;
-      if (fb.y - fb.r <= 0 || fb.y + fb.r >= 440) fb.vy *= -1;
-
-      // Hazard Coin Collision (Bounce off active coins)
-      enemies.forEach(en => {
-        if (en.state === 'COIN_MODE') {
-          const dx = fb.x - (en.x + en.w / 2);
-          const dy = fb.y - (en.y + en.h / 2);
-          if (Math.hypot(dx, dy) < fb.r + en.w / 2) {
-            fb.vx *= -1;
-            fb.vy *= -1;
-          }
-        }
-      });
-    });
-
-    // Inter-Entity Interactions & Fatalities
-    players.forEach(p => {
-      // 1. Collision with Fireballs (Instant Wipe)
-      fireballs.forEach(fb => {
-        if (p.x + p.w > fb.x - fb.r && p.x < fb.x + fb.r &&
-            p.y + p.h > fb.y - fb.r && p.y < fb.y + fb.r) {
-          triggerGameOver();
-        }
-      });
-
-      // 2. Collision with Enemies
-      enemies.forEach(en => {
-        const overlap = p.x + p.w > en.x && p.x < en.x + en.w &&
-                        p.y + p.h > en.y && p.y < en.y + en.h;
-        if (overlap) {
-          if (en.state === 'WALK' || en.state === 'COIN_MODE') {
-            // Lethal contact
-            triggerGameOver();
-          } else if (en.state === 'STUNNED') {
-            // Kick stunned enemy into tube -> Converts to Hazard Coin
-            en.state = 'COIN_MODE';
-            en.y = 80; // Re-enters from upper pipes
-            en.vx = (en.type === 'BUZZY' ? 3.0 : 1.8) * (Math.random() > 0.5 ? 1 : -1);
-          }
-        }
-      });
-    });
-
-    // Fireball vs Enemy Collision (Enemy dies if hit by fireball)
-    enemies.forEach(en => {
-      if (en.state === 'WALK' || en.state === 'STUNNED') {
-        fireballs.forEach(fb => {
-          if (en.x + en.w > fb.x - fb.r && en.x < fb.x + fb.r &&
-              en.y + en.h > fb.y - fb.r && en.y < fb.y + fb.r) {
-            en.state = 'DEAD';
-          }
-        });
-      }
-    });
-    enemies = enemies.filter(en => en.state !== 'DEAD');
-    if (enemies.length === 0) triggerGameOver();
-
-    // Shockwave Animation Tick
-    shockwaves.forEach(sw => sw.life--);
-    shockwaves = shockwaves.filter(sw => sw.life > 0);
-  }
-
-  // Render Loop
-  function draw() {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Platforms
-    ctx.fillStyle = '#b84418';
-    platforms.forEach(plat => {
-      ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-      ctx.fillStyle = '#fce0a8';
-      ctx.fillRect(plat.x, plat.y, plat.w, 3); // Highlight top edge
-      ctx.fillStyle = '#b84418';
-    });
-
-    // Shockwaves
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    shockwaves.forEach(sw => {
-      ctx.beginPath();
-      ctx.arc(sw.x, sw.y, (12 - sw.life) * 3, 0, Math.PI * 2);
-      ctx.stroke();
-    });
-
-    // Players
-    players.forEach(p => {
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(p.x + (p.vx >= 0 ? 10 : 2), p.y + 4, 4, 4); // Eye
-    });
-
-    // Enemies & Coins
-    enemies.forEach(en => {
-      if (en.state === 'COIN_MODE') {
-        // Render as pulsating Hazard Coin
-        ctx.fillStyle = (Date.now() % 200 < 100) ? '#ff0' : '#fff';
-        ctx.beginPath();
-        ctx.ellipse(en.x + en.w / 2, en.y + en.h / 2, en.w / 2, en.h / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.fillStyle = en.state === 'STUNNED' ? '#44f' : (en.type === 'SPINY' ? '#f55' : '#5a5');
-        ctx.fillRect(en.x, en.y, en.w, en.h);
-        if (en.state === 'STUNNED') {
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(en.x + 2, en.y + 6, 12, 4); // Belly indicator
-        }
-      }
-    });
-
-    // Fireballs
-    fireballs.forEach(fb => {
-      ctx.fillStyle = '#fa0';
-      ctx.beginPath();
-      ctx.arc(fb.x, fb.y, fb.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ff4';
-      ctx.beginPath();
-      ctx.arc(fb.x, fb.y, fb.r * 0.5, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-
-  let lastTime = performance.now();
-  function engineLoop(now) {
-    const dt = now - lastTime;
-    lastTime = now;
-    tick(dt);
-    draw();
-    requestAnimationFrame(engineLoop);
-  }
-
-  // Handlers
-  document.getElementById('btn-create').addEventListener('click', () => {
-    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
-    lobbyStatus.textContent = `ROOM: ${code} (READY) - STARTING...`;
-    setTimeout(initGame, 1000);
-  });
-
-  document.getElementById('btn-join').addEventListener('click', () => {
-    const input = document.getElementById('join-code').value.trim();
-    if (input.length >= 4) {
-      lobbyStatus.textContent = `JOINED ${input.toUpperCase()} - CONNECTING...`;
-      setTimeout(initGame, 1000);
-    } else {
-      lobbyStatus.textContent = "ENTER A VALID 4-6 DIGIT CODE";
-    }
-  });
-
-  document.getElementById('btn-retry').addEventListener('click', initGame);
-
-  requestAnimationFrame(engineLoop);
-})();
-</script>
-</body>
-</html>
+    <div>TIME: <span id="hud-time" style="color: #4af;">00:00.00</span></div>
+    <div>CLOCK: <span id="hud-rate" style="color: #ff4;">100%</span></div>
+    <div>SCORE: <span id="hud-score" style="color: #fa0;">
