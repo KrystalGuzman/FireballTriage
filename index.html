@@ -47,12 +47,12 @@
     .overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.88);
+      background: rgba(0, 0, 0, 0.9);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
       padding: 16px;
       text-align: center;
       z-index: 20;
@@ -63,14 +63,30 @@
       color: #fff;
       padding: 8px 14px;
       font-family: inherit;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       cursor: pointer;
     }
     button:active { background: #fff; color: #000; }
-    input { width: 100px; text-transform: uppercase; text-align: center; }
+    input { width: 120px; text-transform: uppercase; text-align: center; }
     .hidden { display: none !important; }
 
+    /* Scoreboard Table */
+    .scoreboard-table {
+      width: 90%;
+      max-width: 440px;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin: 4px 0;
+    }
+    .scoreboard-table th, .scoreboard-table td {
+      border: 1px solid #444;
+      padding: 3px 6px;
+      text-align: center;
+    }
+    .scoreboard-table th { background: #222; color: #ff4; }
+
+    /* Touch Controls */
     #controls-container {
       display: flex;
       justify-content: space-between;
@@ -78,22 +94,22 @@
       width: 100vw;
       max-width: 640px;
       flex: 1;
-      max-height: 150px;
+      max-height: 140px;
       padding: 10px 24px;
       background: #0a0a0a;
     }
     .d-pad { display: flex; gap: 14px; }
     .action-pad { display: flex; }
     .touch-btn {
-      width: 68px;
-      height: 68px;
+      width: 64px;
+      height: 64px;
       background: #202020;
       border: 2px solid #666;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: bold;
       color: #fff;
       touch-action: none;
@@ -104,11 +120,11 @@
       border-color: #fff;
     }
     .jump-btn {
-      width: 78px;
-      height: 78px;
+      width: 74px;
+      height: 74px;
       background: #900;
       border-color: #f33;
-      font-size: 16px;
+      font-size: 15px;
     }
     .jump-btn:active, .jump-btn.active {
       background: #f33;
@@ -127,9 +143,10 @@
 
   <canvas id="stage" width="640" height="480"></canvas>
 
+  <!-- LOBBY OVERLAY -->
   <div id="lobby-menu" class="overlay">
-    <h2 style="color: #f55; font-size: 20px;">SMB3: FIREBALL TRIAGE</h2>
-    <p style="font-size: 11px; max-width: 440px; line-height: 1.4; color: #ccc;">
+    <h2 style="color: #f55; font-size: 18px;">SMB3: FIREBALL TRIAGE</h2>
+    <p style="font-size: 10px; max-width: 440px; line-height: 1.3; color: #ccc;">
       Bump floors below fireballs to extinguish them. Bump enemies to stun them, then kick them into pipes. Bump Hazard Coins to bank greed points and slow down the clock!
     </p>
 
@@ -145,20 +162,58 @@
     </div>
 
     <div id="waiting-panel" class="hidden">
-      <div style="font-size: 13px; color: #aaa;">SHARE THIS ROOM CODE:</div>
-      <div id="room-code-display" style="font-size: 32px; font-weight: bold; color: #4af; letter-spacing: 4px; margin: 4px 0;">----</div>
-      <div style="font-size: 12px; color: #ff4;">WAITING FOR PLAYER 2 TO JOIN...</div>
+      <div style="font-size: 12px; color: #aaa;">SHARE THIS ROOM CODE:</div>
+      <div id="room-code-display" style="font-size: 28px; font-weight: bold; color: #4af; letter-spacing: 4px; margin: 2px 0;">----</div>
+      <div style="font-size: 11px; color: #ff4;">WAITING FOR PLAYER 2 TO JOIN...</div>
     </div>
 
-    <div id="lobby-status" style="font-size: 12px; color: #777;">Desktop: [W,A,D or Arrows] | Mobile: [Touch Bar]</div>
+    <!-- GLOBAL LEADERBOARD DISPLAY -->
+    <div style="font-size: 12px; font-weight: bold; color: #fa0; margin-top: 4px;">GLOBAL TOP SURVIVORS</div>
+    <table class="scoreboard-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>PLAYER</th>
+          <th>TIME</th>
+          <th>SCORE</th>
+        </tr>
+      </thead>
+      <tbody id="lobby-leaderboard-body">
+        <tr><td colspan="4">Loading leaderboard...</td></tr>
+      </tbody>
+    </table>
+
+    <div id="lobby-status" style="font-size: 11px; color: #777;">Desktop: [W,A,D / Arrows] | Mobile: [Touch Bar]</div>
   </div>
 
+  <!-- GAME OVER OVERLAY -->
   <div id="game-over-menu" class="overlay hidden">
-    <h2 style="color: #f00;">GAME OVER</h2>
-    <div style="font-size: 13px; margin: 4px 0;">
+    <h2 style="color: #f00; font-size: 18px;">GAME OVER</h2>
+    <div style="font-size: 12px;">
       <div>SURVIVAL TIME: <span id="final-time" style="color: #4af; font-weight: bold;">00:00.00</span></div>
       <div>FINAL SCORE: <span id="final-score" style="color: #fa0; font-weight: bold;">0</span></div>
     </div>
+
+    <div id="submit-section" style="display: flex; gap: 6px; align-items: center; margin: 4px 0;">
+      <input type="text" id="player-handle" placeholder="YOUR NAME" maxlength="10">
+      <button id="btn-submit-score">SUBMIT SCORE</button>
+    </div>
+    <div id="submit-msg" style="font-size: 11px; color: #4af;"></div>
+
+    <table class="scoreboard-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>PLAYER</th>
+          <th>TIME</th>
+          <th>SCORE</th>
+        </tr>
+      </thead>
+      <tbody id="gameover-leaderboard-body">
+        <tr><td colspan="4">Loading leaderboard...</td></tr>
+      </tbody>
+    </table>
+
     <button id="btn-rematch">PLAY AGAIN</button>
   </div>
 </div>
@@ -175,6 +230,11 @@
 
 <script>
 (() => {
+  // DREAMLO TURNKEY CONFIGURATION
+  // Replace these with your own keys from dreamlo.com to manage your private board.
+  const DREAMLO_PUBLIC_KEY = '6605d2148f40bb1168d1b11b';
+  const DREAMLO_PRIVATE_KEY = 'YOUR_PRIVATE_KEY_HERE';
+
   const canvas = document.getElementById('stage');
   const ctx = canvas.getContext('2d');
 
@@ -190,10 +250,16 @@
   const hudScore = document.getElementById('hud-score');
   const finalTime = document.getElementById('final-time');
   const finalScore = document.getElementById('final-score');
+  const submitMsg = document.getElementById('submit-msg');
+  const playerHandleInput = document.getElementById('player-handle');
+
+  const lobbyLeaderboard = document.getElementById('lobby-leaderboard-body');
+  const gameoverLeaderboard = document.getElementById('gameover-leaderboard-body');
 
   const myInputs = { left: false, right: false, jump: false };
   const remoteInputs = { left: false, right: false, jump: false };
 
+  // Desktop Controls
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyA' || e.code === 'ArrowLeft') myInputs.left = true;
     if (e.code === 'KeyD' || e.code === 'ArrowRight') myInputs.right = true;
@@ -205,6 +271,7 @@
     if (e.code === 'KeyW' || e.code === 'ArrowUp') myInputs.jump = false;
   });
 
+  // Mobile Controls
   function bindTouch(id, key) {
     const el = document.getElementById(id);
     const setKey = (val, active) => {
@@ -255,6 +322,64 @@
     return `${m}:${s}.${cs}`;
   }
 
+  // --- DREAMLO LEADERBOARD API ---
+  async function fetchLeaderboard() {
+    try {
+      const res = await fetch(`https://dreamlo.com/lb/${DREAMLO_PUBLIC_KEY}/json`);
+      const data = await res.json();
+      let entries = data?.dreamlo?.leaderboard?.entry;
+
+      if (!entries) {
+        lobbyLeaderboard.innerHTML = '<tr><td colspan="4">No scores logged yet!</td></tr>';
+        gameoverLeaderboard.innerHTML = '<tr><td colspan="4">No scores logged yet!</td></tr>';
+        return;
+      }
+
+      if (!Array.isArray(entries)) entries = [entries];
+
+      // Sort by Survival Time (seconds stored in score field)
+      entries.sort((a, b) => parseInt(b.score) - parseInt(a.score));
+
+      const rowsHtml = entries.slice(0, 5).map((e, idx) => `
+        <tr>
+          <td>#${idx + 1}</td>
+          <td>${e.name.substring(0, 10)}</td>
+          <td>${formatTime(parseInt(e.score) * 10)}</td>
+          <td>${parseInt(e.seconds || 0).toLocaleString()}</td>
+        </tr>
+      `).join('');
+
+      lobbyLeaderboard.innerHTML = rowsHtml;
+      gameoverLeaderboard.innerHTML = rowsHtml;
+    } catch (err) {
+      lobbyLeaderboard.innerHTML = '<tr><td colspan="4">Leaderboard unavailable</td></tr>';
+      gameoverLeaderboard.innerHTML = '<tr><td colspan="4">Leaderboard unavailable</td></tr>';
+    }
+  }
+
+  async function submitGlobalScore(name, survMs, pts) {
+    if (!name) return;
+    submitMsg.textContent = "Submitting...";
+    try {
+      // In Dreamlo: score = primary sort metric (survMs / 10), seconds = secondary (points)
+      const encodedName = encodeURIComponent(name.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 10));
+      const survMetric = Math.floor(survMs / 10);
+      const scoreMetric = Math.floor(pts);
+
+      await fetch(`https://dreamlo.com/lb/${DREAMLO_PRIVATE_KEY}/add/${encodedName}/${survMetric}/${scoreMetric}`);
+      submitMsg.textContent = "Score Posted!";
+      document.getElementById('submit-section').classList.add('hidden');
+      fetchLeaderboard();
+    } catch (e) {
+      submitMsg.textContent = "Submission failed.";
+    }
+  }
+
+  document.getElementById('btn-submit-score').addEventListener('click', () => {
+    const handle = playerHandleInput.value.trim() || 'ANON';
+    submitGlobalScore(handle, survivalTimeMs, score);
+  });
+
   function resetWorld() {
     survivalTimeMs = 0;
     score = 0;
@@ -263,7 +388,6 @@
     fireballTimer = 0;
     shockwaves = [];
 
-    // Solo mode initializes only 1 player; Co-Op initializes 2 players
     if (isSolo) {
       players = [
         { id: 1, x: 310, y: 400, vx: 0, vy: 0, w: 18, h: 26, color: '#f33', grounded: false }
@@ -282,7 +406,7 @@
     ];
 
     fireballs = [
-      { x: 320, y: 60, vx: 2.2, vy: 1.8, r: 8, waveOffset: 0 }
+      { x: 320, y: 60, vx: 2.2, vy: 1.8, r: 8 }
     ];
   }
 
@@ -291,6 +415,8 @@
     running = true;
     lobbyMenu.classList.add('hidden');
     gameOverMenu.classList.add('hidden');
+    document.getElementById('submit-section').classList.remove('hidden');
+    submitMsg.textContent = '';
   }
 
   function executeGameOver() {
@@ -298,19 +424,18 @@
     finalTime.textContent = formatTime(survivalTimeMs);
     finalScore.textContent = Math.floor(score).toLocaleString();
     gameOverMenu.classList.remove('hidden');
+    fetchLeaderboard();
   }
 
   function registerHeadBump(x, y, w) {
     shockwaves.push({ x: x + w / 2, y: y, life: 12 });
 
-    // Extinguish Fireballs
     fireballs = fireballs.filter(fb => {
       const hit = Math.abs(fb.x - (x + w / 2)) < 28 && Math.abs(fb.y - y) < 22;
       if (hit) score += 2500;
       return !hit;
     });
 
-    // Stun Enemies or Cash Out Hazard Coins
     enemies.forEach(en => {
       if (Math.abs(en.x - (x + w / 2)) < 22 && Math.abs((en.y + en.h) - y) < 20) {
         if (en.state === 'COIN_MODE') {
@@ -347,7 +472,6 @@
       survivalTimeMs += dt * clockRate;
       score += (dt / 1000) * 100;
 
-      // Handle Player Input & Physics
       const inputList = isSolo ? [myInputs] : (isOnline ? [myInputs, remoteInputs] : [myInputs]);
       inputList.forEach((inpt, idx) => {
         const p = players[idx];
@@ -386,7 +510,6 @@
         }
       });
 
-      // Fireball Spawner
       fireballTimer++;
       if (fireballTimer > 360 && fireballs.length < 5) {
         fireballTimer = 0;
@@ -395,12 +518,10 @@
           y: 40,
           vx: (Math.random() > 0.5 ? 1 : -1) * (2.0 + Math.random() * 0.8),
           vy: 1.4 + Math.random() * 0.6,
-          r: 8,
-          waveOffset: Math.random() * Math.PI
+          r: 8
         });
       }
 
-      // Enemy Physics & AI
       enemies.forEach(en => {
         if (en.state === 'WALK' || en.state === 'COIN_MODE') {
           en.vy += 0.4;
@@ -427,29 +548,17 @@
         }
       });
 
-      // Fireball Full Collision & Surface Rebounds
+      // Fireball Surface Ricochets
       fireballs.forEach(fb => {
         fb.x += fb.vx;
         fb.y += fb.vy;
 
-        // Screen boundary bounces
-        if (fb.x - fb.r <= 0) {
-          fb.x = fb.r;
-          fb.vx = Math.abs(fb.vx);
-        } else if (fb.x + fb.r >= 640) {
-          fb.x = 640 - fb.r;
-          fb.vx = -Math.abs(fb.vx);
-        }
+        if (fb.x - fb.r <= 0) { fb.x = fb.r; fb.vx = Math.abs(fb.vx); }
+        else if (fb.x + fb.r >= 640) { fb.x = 640 - fb.r; fb.vx = -Math.abs(fb.vx); }
 
-        if (fb.y - fb.r <= 0) {
-          fb.y = fb.r;
-          fb.vy = Math.abs(fb.vy);
-        } else if (fb.y + fb.r >= 480) {
-          fb.y = 480 - fb.r;
-          fb.vy = -Math.abs(fb.vy);
-        }
+        if (fb.y - fb.r <= 0) { fb.y = fb.r; fb.vy = Math.abs(fb.vy); }
+        else if (fb.y + fb.r >= 480) { fb.y = 480 - fb.r; fb.vy = -Math.abs(fb.vy); }
 
-        // Platform Surface Collisions (Elastic Ricochets)
         platforms.forEach(plat => {
           const nearestX = Math.max(plat.x, Math.min(fb.x, plat.x + plat.w));
           const nearestY = Math.max(plat.y, Math.min(fb.y, plat.y + plat.h));
@@ -461,29 +570,16 @@
             const overlapY = fb.r - Math.abs(deltaY);
 
             if (overlapY < overlapX) {
-              // Top or Bottom bounce
-              if (deltaY > 0) {
-                fb.y = plat.y + plat.h + fb.r;
-                fb.vy = Math.abs(fb.vy);
-              } else {
-                fb.y = plat.y - fb.r;
-                fb.vy = -Math.abs(fb.vy);
-              }
+              if (deltaY > 0) { fb.y = plat.y + plat.h + fb.r; fb.vy = Math.abs(fb.vy); }
+              else { fb.y = plat.y - fb.r; fb.vy = -Math.abs(fb.vy); }
             } else {
-              // Left or Right lateral bounce
-              if (deltaX > 0) {
-                fb.x = plat.x + plat.w + fb.r;
-                fb.vx = Math.abs(fb.vx);
-              } else {
-                fb.x = plat.x - fb.r;
-                fb.vx = -Math.abs(fb.vx);
-              }
+              if (deltaX > 0) { fb.x = plat.x + plat.w + fb.r; fb.vx = Math.abs(fb.vx); }
+              else { fb.x = plat.x - fb.r; fb.vx = -Math.abs(fb.vx); }
             }
           }
         });
       });
 
-      // Lethal Player Collisions
       players.forEach(p => {
         fireballs.forEach(fb => {
           if (p.x + p.w > fb.x - fb.r && p.x < fb.x + fb.r &&
@@ -508,7 +604,6 @@
         });
       });
 
-      // Fireball vs Enemy Contact (Destroys Enemies)
       enemies.forEach(en => {
         fireballs.forEach(fb => {
           if (en.x + en.w > fb.x - fb.r && en.x < fb.x + fb.r &&
@@ -549,7 +644,6 @@
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Render Platforms
     platforms.forEach(plat => {
       ctx.fillStyle = '#b84418';
       ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
@@ -557,16 +651,14 @@
       ctx.fillRect(plat.x, plat.y, plat.w, 3);
     });
 
-    // Render Shockwaves
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
     shockwaves.forEach(sw => {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(sw.x, sw.y, (12 - sw.life) * 3, 0, Math.PI * 2);
       ctx.stroke();
     });
 
-    // Render Players
     players.forEach(p => {
       ctx.fillStyle = p.color;
       ctx.fillRect(p.x, p.y, p.w, p.h);
@@ -574,7 +666,6 @@
       ctx.fillRect(p.x + (p.vx >= 0 ? 10 : 2), p.y + 4, 4, 4);
     });
 
-    // Render Enemies
     enemies.forEach(en => {
       if (en.state === 'COIN_MODE') {
         ctx.fillStyle = (Date.now() % 200 < 100) ? '#ff0' : '#fff';
@@ -587,7 +678,6 @@
       }
     });
 
-    // Render Bouncing Fireballs
     fireballs.forEach(fb => {
       ctx.fillStyle = '#fa0';
       ctx.beginPath();
@@ -654,7 +744,6 @@
     });
   }
 
-  // SOLO PLAY: Exactly 1 Player, No Network Overhead
   document.getElementById('btn-solo').addEventListener('click', () => {
     isSolo = true;
     isOnline = false;
@@ -662,7 +751,6 @@
     startActiveGame();
   });
 
-  // CREATE ROOM: 2 Players, Host Mode
   document.getElementById('btn-create').addEventListener('click', () => {
     isSolo = false;
     isOnline = true;
@@ -684,7 +772,6 @@
     }
   });
 
-  // JOIN ROOM: 2 Players, Client Mode
   document.getElementById('btn-join').addEventListener('click', () => {
     const code = document.getElementById('join-code').value.trim().toUpperCase();
     if (code.length !== 4) {
@@ -708,8 +795,9 @@
     startActiveGame();
   });
 
-  // Kick off render loop immediately so preview is visible
+  // Initial load
   resetWorld();
+  fetchLeaderboard();
   requestAnimationFrame(engineLoop);
 })();
 </script>
